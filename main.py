@@ -57,3 +57,62 @@ class SerpTier(Enum):
     LONG_TAIL = 2
     BRAND = 3
     LOCAL = 4
+    IMAGE = 5
+
+
+class ContentGrade(Enum):
+    A = 90
+    B = 75
+    C = 60
+    D = 40
+    F = 0
+
+
+# ------------------------------------------------------------------------------
+# Data structures
+# ------------------------------------------------------------------------------
+
+@dataclass
+class KeywordResult:
+    keyword: str
+    count: int
+    density_bps: int
+    position_first: int
+    position_last: int
+    tier: SerpTier
+    normalized: str
+
+
+@dataclass
+class MetaTags:
+    title: str
+    description: str
+    canonical: str
+    og_title: str
+    og_description: str
+    og_type: str
+    twitter_card: str
+    twitter_title: str
+    twitter_description: str
+    robots: str
+    viewport: str
+    charset: str
+    locale: str
+    extra: list[tuple[str, str]] = field(default_factory=list)
+
+
+@dataclass
+class SerpSnippet:
+    title: str
+    url: str
+    display_url: str
+    description: str
+    breadcrumb: str
+    score_bps: int
+
+
+@dataclass
+class PageScore:
+    total_bps: int
+    title_score_bps: int
+    desc_score_bps: int
