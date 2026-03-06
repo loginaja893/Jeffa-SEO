@@ -411,3 +411,62 @@ def jeffa_page_score(
     description: str,
     body_text: str,
     h1_list: list[str],
+    primary_keyword: str,
+) -> PageScore:
+    wc = len(jeffa_tokenize(body_text))
+    kw_result = jeffa_analyze_keyword_in_text(body_text, primary_keyword) if primary_keyword else None
+    density_bps = kw_result.density_bps if kw_result else 0
+
+    t_bps = jeffa_score_title(title, primary_keyword)
+    d_bps = jeffa_score_description(description, primary_keyword)
+    h_bps = jeffa_score_h1(h1_list, primary_keyword)
+    k_bps = jeffa_score_keyword_density(density_bps)
+    l_bps = jeffa_score_length(wc)
+
+    total_bps = (t_bps + d_bps + h_bps + k_bps + l_bps) // 5
+    total_bps = min(total_bps, JEFFA_SCORE_BPS_CAP)
+    grade = jeffa_grade_from_bps(total_bps)
+
+    suggestions = []
+    if t_bps < 6000:
+        suggestions.append("Include primary keyword in title and keep under 60 chars.")
+    if d_bps < 6000:
+        suggestions.append("Include primary keyword in meta description (120–160 chars).")
+    if h_bps < 7000:
+        suggestions.append("Use one H1 containing the primary keyword.")
+    if k_bps < 6000:
+        suggestions.append("Adjust keyword density (target 0.5%–3%).")
+    if l_bps < 6000:
+        suggestions.append("Increase content length (aim for 800+ words for core topics).")
+
+    return PageScore(
+        total_bps=total_bps,
+        title_score_bps=t_bps,
+        desc_score_bps=d_bps,
+        h1_score_bps=h_bps,
+        keyword_score_bps=k_bps,
+        length_score_bps=l_bps,
+        grade=grade,
+        suggestions=suggestions,
+    )
+
+
+# ------------------------------------------------------------------------------
+# Sitemap generation (XML)
+# ------------------------------------------------------------------------------
+
+def jeffa_sitemap_ns() -> dict[str, str]:
+    return {
+        "": "http://www.sitemaps.org/schemas/sitemap/0.9",
+        "xhtml": "http://www.w3.org/1999/xhtml",
+    }
+
+
+def jeffa_sitemap_add_url(root: ET.Element, url: SitemapUrl, ns: dict[str, str]) -> None:
+    url_el = ET.SubElement(root, "url")
+    ET.SubElement(url_el, "loc").text = url.loc
+    if url.lastmod:
+        ET.SubElement(url_el, "lastmod").text = url.lastmod
+    if url.changefreq:
+        ET.SubElement(url_el, "changefreq").text = url.changefreq
+    if url.priority is not None:
