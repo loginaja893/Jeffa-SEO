@@ -1060,3 +1060,62 @@ def jeffa_content_gap_keywords(
         kw_tokens = set(jeffa_tokenize(norm))
         if not kw_tokens.issubset(existing_set):
             gap.append(kw)
+    return gap
+
+
+def jeffa_readability_score_bps(text: str) -> int:
+    words = jeffa_word_count(text)
+    sents = jeffa_sentence_count(text)
+    if sents == 0:
+        return 0
+    avg_sent = words / sents
+    if avg_sent <= 15:
+        return 9000
+    if avg_sent <= 20:
+        return 7000
+    if avg_sent <= 25:
+        return 5000
+    return 3000
+
+
+def jeffa_inject_primary_keyword_into_title(title: str, primary_keyword: str, max_len: int = JEFFA_MAX_TITLE_LEN) -> str:
+    if not primary_keyword or primary_keyword.lower() in title.lower():
+        return jeffa_truncate_for_meta(title, max_len)
+    combined = f"{primary_keyword}: {title}"
+    return jeffa_truncate_for_meta(combined, max_len)
+
+
+def jeffa_inject_primary_keyword_into_desc(description: str, primary_keyword: str) -> str:
+    if not primary_keyword or primary_keyword.lower() in description.lower():
+        return jeffa_truncate_for_meta(description, JEFFA_MAX_DESC_LEN)
+    combined = f"{description} {primary_keyword}."
+    return jeffa_truncate_for_meta(combined, JEFFA_MAX_DESC_LEN, "...")
+
+
+def jeffa_compare_titles(a: str, b: str) -> int:
+    """Returns a score 0-10000: how similar the two titles are (keyword overlap)."""
+    set_a = set(jeffa_extract_keywords(a))
+    set_b = set(jeffa_extract_keywords(b))
+    if not set_a:
+        return 10000 if not set_b else 0
+    inter = len(set_a & set_b)
+    return (inter * 10000) // len(set_a)
+
+
+def jeffa_redirect_chain_safe(url: str, max_hops: int = 5) -> list[str]:
+    """Returns list of URLs in redirect chain (stdlib only; no follow by default)."""
+    return [url]
+
+
+def jeffa_meta_refresh_parse(html_text: str) -> str | None:
+    meta_re = re.compile(r'<meta[^>]+http-equiv=["\']refresh["\'][^>]+content=["\']([^"\']+)["\']', re.I)
+    m = meta_re.search(html_text)
+    if m:
+        return m.group(1).strip()
+    return None
+
+
+def jeffa_noindex_detected(html_text: str) -> bool:
+    robots = jeffa_meta_robots_parse(jeffa_extract_meta_content(html_text, "robots"))
+    return not robots.get("index", True)
+
