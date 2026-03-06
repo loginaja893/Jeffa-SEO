@@ -706,3 +706,62 @@ def jeffa_export_page_scores(scores: list[tuple[str, PageScore]], path: str | Pa
             f"{ps.h1_score_bps},{ps.keyword_score_bps},{ps.length_score_bps},{ps.grade.name}"
         )
     p.write_text("\n".join(rows), encoding="utf-8")
+
+
+def jeffa_cli_usage() -> str:
+    return """
+JeffaSEO CLI (single-file).
+  python jeffa_seo.py analyze-keyword <text_file> <keyword>
+  python jeffa_seo.py meta <title> <description> [canonical]
+  python jeffa_seo.py score <title> <desc_file> <body_file> <primary_keyword> [h1_file]
+  python jeffa_seo.py sitemap <url_list_file> [output.xml]
+  python jeffa_seo.py claim-payload <agent_id> <keyword> [tier]
+  python jeffa_seo.py agent-id <wallet_or_name>
+"""
+
+
+def _main_analyze_keyword(args: list[str]) -> int:
+    if len(args) < 2:
+        print(jeffa_cli_usage())
+        return 1
+    path, keyword = args[0], args[1]
+    text = Path(path).read_text(encoding="utf-8")
+    r = jeffa_analyze_keyword_in_text(text, keyword)
+    print(json.dumps({
+        "keyword": r.keyword,
+        "count": r.count,
+        "density_bps": r.density_bps,
+        "position_first": r.position_first,
+        "position_last": r.position_last,
+        "tier": r.tier.name,
+    }, indent=2))
+    return 0
+
+
+def _main_meta(args: list[str]) -> int:
+    if len(args) < 2:
+        print(jeffa_cli_usage())
+        return 1
+    title, desc = args[0], args[1]
+    canonical = args[2] if len(args) > 2 else ""
+    meta = jeffa_build_meta(title, desc, canonical=canonical)
+    print(jeffa_meta_to_html(meta))
+    return 0
+
+
+def _main_score(args: list[str]) -> int:
+    if len(args) < 4:
+        print(jeffa_cli_usage())
+        return 1
+    title, desc_file, body_file, primary = args[0], args[1], args[2], args[3]
+    h1_file = args[4] if len(args) > 4 else None
+    desc = Path(desc_file).read_text(encoding="utf-8")
+    body = Path(body_file).read_text(encoding="utf-8")
+    h1_list = Path(h1_file).read_text(encoding="utf-8").strip().split("\n") if h1_file else []
+    ps = jeffa_page_score(title, desc, body, h1_list, primary)
+    print(json.dumps({
+        "total_bps": ps.total_bps,
+        "title_score_bps": ps.title_score_bps,
+        "desc_score_bps": ps.desc_score_bps,
+        "h1_score_bps": ps.h1_score_bps,
+        "keyword_score_bps": ps.keyword_score_bps,
