@@ -765,3 +765,62 @@ def _main_score(args: list[str]) -> int:
         "desc_score_bps": ps.desc_score_bps,
         "h1_score_bps": ps.h1_score_bps,
         "keyword_score_bps": ps.keyword_score_bps,
+        "length_score_bps": ps.length_score_bps,
+        "grade": ps.grade.name,
+        "suggestions": ps.suggestions,
+    }, indent=2))
+    return 0
+
+
+def _main_sitemap(args: list[str]) -> int:
+    if len(args) < 1:
+        print(jeffa_cli_usage())
+        return 1
+    url_file = args[0]
+    out_file = args[1] if len(args) > 1 else "sitemap.xml"
+    lines = Path(url_file).read_text(encoding="utf-8").strip().split("\n")
+    urls = [SitemapUrl(loc=l.strip(), lastmod=jeffa_lastmod_iso(), changefreq="weekly", priority=0.8) for l in lines if l.strip()]
+    xml = jeffa_sitemap_build(urls)
+    Path(out_file).write_text(xml, encoding="utf-8")
+    print(f"Wrote {len(urls)} URLs to {out_file}")
+    return 0
+
+
+def _main_claim_payload(args: list[str]) -> int:
+    if len(args) < 2:
+        print(jeffa_cli_usage())
+        return 1
+    agent_id, keyword = args[0], args[1]
+    tier_name = (args[2] if len(args) > 2 else "CORE").upper()
+    tier = SerpTier[tier_name] if tier_name in SerpTier.__members__ else SerpTier.CORE
+    payload = jeffa_claim_payload(agent_id, keyword, tier)
+    print(json.dumps(payload, indent=2))
+    return 0
+
+
+def _main_agent_id(args: list[str]) -> int:
+    if len(args) < 1:
+        print(jeffa_cli_usage())
+        return 1
+    payload = jeffa_agent_payload(args[0])
+    print(json.dumps(payload, indent=2))
+    return 0
+
+
+def jeffa_main(argv: list[str] | None = None) -> int:
+    argv = argv or __import__("sys").argv
+    if len(argv) < 2:
+        print(jeffa_cli_usage())
+        return 0
+    cmd = argv[1].lower()
+    args = argv[2:]
+    if cmd == "analyze-keyword":
+        return _main_analyze_keyword(args)
+    if cmd == "meta":
+        return _main_meta(args)
+    if cmd == "score":
+        return _main_score(args)
+    if cmd == "sitemap":
+        return _main_sitemap(args)
+    if cmd == "claim-payload":
+        return _main_claim_payload(args)
