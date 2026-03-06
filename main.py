@@ -942,3 +942,62 @@ def jeffa_faq_schema(qa_pairs: list[tuple[str, str]]) -> dict[str, Any]:
         "@type": "FAQPage",
         "mainEntity": [
             {"@type": "Question", "name": q, "acceptedAnswer": {"@type": "Answer", "text": a}}
+            for q, a in qa_pairs
+        ],
+    }
+
+
+def jeffa_article_schema(
+    headline: str,
+    description: str,
+    url: str,
+    date_published: str,
+    date_modified: str | None = None,
+    author_name: str = "",
+    image_url: str = "",
+) -> dict[str, Any]:
+    d: dict[str, Any] = {
+        "@context": JEFFA_SCHEMA_ORG_CONTEXT,
+        "@type": "Article",
+        "headline": headline,
+        "description": description,
+        "url": url,
+        "datePublished": date_published,
+    }
+    if date_modified:
+        d["dateModified"] = date_modified
+    if author_name:
+        d["author"] = {"@type": "Person", "name": author_name}
+    if image_url:
+        d["image"] = image_url
+    return d
+
+
+def jeffa_compress_whitespace(text: str) -> str:
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def jeffa_stem_simple(word: str) -> str:
+    if len(word) <= 4:
+        return word
+    if word.endswith("ing"):
+        return word[:-3]
+    if word.endswith("ed"):
+        return word[:-2]
+    if word.endswith("s") and len(word) > 1:
+        return word[:-1]
+    return word
+
+
+def jeffa_keyword_variations(keyword: str) -> list[str]:
+    norm = jeffa_normalize_keyword(keyword)
+    words = norm.split()
+    if len(words) <= 1:
+        return [norm]
+    variations = [norm]
+    if len(words) >= 2:
+        variations.append(" ".join(reversed(words)))
+    return variations
+
+
+def jeffa_serp_tier_from_keyword(keyword: str) -> SerpTier:
