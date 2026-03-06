@@ -293,3 +293,62 @@ def jeffa_meta_to_html(meta: MetaTags, indent: str = "  ") -> str:
         lines.append(f'<link rel="canonical" href="{html.escape(meta.canonical)}">')
     lines.extend([
         f'<meta property="og:title" content="{html.escape(meta.og_title)}">',
+        f'<meta property="og:description" content="{html.escape(meta.og_description)}">',
+        f'<meta property="og:type" content="{html.escape(meta.og_type)}">',
+        f'<meta name="twitter:card" content="{html.escape(meta.twitter_card)}">',
+        f'<meta name="twitter:title" content="{html.escape(meta.twitter_title)}">',
+        f'<meta name="twitter:description" content="{html.escape(meta.twitter_description)}">',
+    ])
+    for name, content in meta.extra:
+        lines.append(f'<meta name="{html.escape(name)}" content="{html.escape(content)}">')
+    return "\n".join(indent + line for line in lines)
+
+
+# ------------------------------------------------------------------------------
+# SERP snippet generation and scoring
+# ------------------------------------------------------------------------------
+
+def jeffa_serp_snippet(
+    title: str,
+    url: str,
+    description: str,
+    breadcrumb: str = "",
+    score_bps: int = 0,
+) -> SerpSnippet:
+    display_url = urllib.parse.urlparse(url).netloc or url
+    title_cut = jeffa_truncate_for_meta(title, JEFFA_SERP_SNIPPET_MAX_TITLE, "...")
+    desc_cut = jeffa_truncate_for_meta(description, JEFFA_SERP_SNIPPET_MAX_DESC, "...")
+    return SerpSnippet(
+        title=title_cut,
+        url=url,
+        display_url=display_url,
+        description=desc_cut,
+        breadcrumb=breadcrumb,
+        score_bps=min(score_bps, JEFFA_SCORE_BPS_CAP),
+    )
+
+
+def jeffa_snippet_to_text(snippet: SerpSnippet) -> str:
+    parts = [snippet.title, snippet.display_url, snippet.description]
+    if snippet.breadcrumb:
+        parts.insert(1, snippet.breadcrumb)
+    return " | ".join(parts)
+
+
+# ------------------------------------------------------------------------------
+# Page scoring (title, description, H1, keyword, length)
+# ------------------------------------------------------------------------------
+
+def jeffa_score_title(title: str, primary_keyword: str) -> int:
+    if not title or not primary_keyword:
+        return 0
+    norm = jeffa_normalize_keyword(primary_keyword)
+    title_lower = title.strip().lower()
+    if norm in title_lower:
+        pos = title_lower.index(norm)
+        if pos < 30:
+            return 9500
+        if pos < 50:
+            return 8000
+        return 6000
+    return 3000
