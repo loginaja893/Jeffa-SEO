@@ -588,3 +588,62 @@ def jeffa_extract_links(html_text: str, base_url: str) -> list[str]:
             parsed = urllib.parse.urlparse(raw)
             if not parsed.netloc:
                 full = urllib.parse.urljoin(base_url, raw)
+            else:
+                full = raw
+            norm = urllib.parse.urljoin(full, ".")
+            if norm not in seen:
+                seen.add(norm)
+                out.append(norm)
+        except Exception:
+            pass
+    return out
+
+
+# ------------------------------------------------------------------------------
+# Readability and content stats
+# ------------------------------------------------------------------------------
+
+def jeffa_word_count(text: str) -> int:
+    return len(jeffa_tokenize(text))
+
+
+def jeffa_sentence_count(text: str) -> int:
+    s = re.sub(r"\s+", " ", text.strip())
+    if not s:
+        return 0
+    return len(re.split(r"[.!?]+", s))
+
+
+def jeffa_avg_sentence_length(text: str) -> float:
+    words = jeffa_word_count(text)
+    sents = jeffa_sentence_count(text)
+    if sents == 0:
+        return 0.0
+    return words / sents
+
+
+def jeffa_avg_word_length(text: str) -> float:
+    tokens = jeffa_tokenize(text)
+    if not tokens:
+        return 0.0
+    return sum(len(t) for t in tokens) / len(tokens)
+
+
+# ------------------------------------------------------------------------------
+# Payload builders for on-chain claims (align with Jeffa.sol)
+# ------------------------------------------------------------------------------
+
+def jeffa_claim_payload(
+    agent_id_hex: str,
+    keyword: str,
+    tier: SerpTier,
+    nonce: str | None = None,
+) -> dict[str, Any]:
+    from time import time_ns
+    nonce = nonce or str(time_ns())
+    claim_id = jeffa_claim_id(agent_id_hex, keyword, nonce)
+    kw_hash = jeffa_keyword_hash(keyword)
+    return {
+        "claimId": claim_id,
+        "agentId": agent_id_hex,
+        "keywordHash": kw_hash,
