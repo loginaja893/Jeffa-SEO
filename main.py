@@ -824,3 +824,62 @@ def jeffa_main(argv: list[str] | None = None) -> int:
         return _main_sitemap(args)
     if cmd == "claim-payload":
         return _main_claim_payload(args)
+    if cmd == "agent-id":
+        return _main_agent_id(args)
+    print(jeffa_cli_usage())
+    return 0
+
+
+# ------------------------------------------------------------------------------
+# Additional AI SEO utilities (reach 1000+ lines)
+# ------------------------------------------------------------------------------
+
+def jeffa_slug_from_title(title: str, max_len: int = 80) -> str:
+    s = title.strip().lower()
+    s = unicodedata.normalize("NFKD", s)
+    s = s.encode("ascii", "ignore").decode("ascii")
+    s = re.sub(r"[^a-z0-9]+", "-", s)
+    s = s.strip("-")
+    return s[:max_len] if len(s) > max_len else s
+
+
+def jeffa_internal_link_suggestions(
+    body_text: str,
+    keyword_phrases: list[str],
+    max_suggestions: int = 5,
+) -> list[tuple[str, int]]:
+    tokens = jeffa_tokenize(body_text)
+    suggestions = []
+    for phrase in keyword_phrases:
+        norm = jeffa_normalize_keyword(phrase)
+        pw = jeffa_tokenize(norm)
+        if not pw:
+            continue
+        count = 0
+        for i in range(len(tokens) - len(pw) + 1):
+            if tokens[i:i + len(pw)] == pw:
+                count += 1
+        suggestions.append((phrase, count))
+    suggestions.sort(key=lambda x: -x[1])
+    return suggestions[:max_suggestions]
+
+
+def jeffa_heading_structure(html_text: str) -> list[tuple[int, str]]:
+    heading_re = re.compile(r"<h([1-6])[^>]*>(.*?)</h\1>", re.I | re.DOTALL)
+    out = []
+    for m in heading_re.finditer(html_text):
+        level = int(m.group(1))
+        inner = re.sub(r"<[^>]+>", "", m.group(2))
+        out.append((level, html.unescape(inner).strip()))
+    return out
+
+
+def jeffa_image_alt_check(html_text: str) -> list[tuple[str, bool]]:
+    img_re = re.compile(r'<img[^>]+src=["\']([^"\']+)["\'][^>]*(?:alt=["\']([^"\']*)["\'])?[^>]*>', re.I)
+    out = []
+    for m in img_re.finditer(html_text):
+        src = m.group(1)
+        alt = m.group(2) if m.group(2) is not None else ""
+        out.append((src, bool(alt.strip())))
+    return out
+
