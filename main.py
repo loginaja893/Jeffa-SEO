@@ -647,3 +647,62 @@ def jeffa_claim_payload(
         "claimId": claim_id,
         "agentId": agent_id_hex,
         "keywordHash": kw_hash,
+        "keyword": keyword,
+        "tier": tier.name,
+        "tierValue": tier.value,
+        "nonce": nonce,
+        "namespace": JEFFA_NAMESPACE,
+    }
+
+
+def jeffa_agent_payload(wallet_or_name: str) -> dict[str, Any]:
+    aid = jeffa_agent_id(wallet_or_name)
+    return {
+        "agentId": aid,
+        "walletOrName": wallet_or_name,
+        "namespace": JEFFA_NAMESPACE,
+    }
+
+
+# ------------------------------------------------------------------------------
+# Batch and iterator helpers
+# ------------------------------------------------------------------------------
+
+def jeffa_batch_keyword_analysis(text: str, keywords: list[str]) -> list[KeywordResult]:
+    return [jeffa_analyze_keyword_in_text(text, kw) for kw in keywords]
+
+
+def jeffa_iterate_meta_for_pages(
+    pages: list[tuple[str, str, str]],
+    base_url: str = "",
+) -> Iterator[MetaTags]:
+    for title, desc, path in pages:
+        canonical = (base_url.rstrip("/") + "/" + path.lstrip("/")) if base_url else path
+        yield jeffa_build_meta(title, desc, canonical=canonical)
+
+
+# ------------------------------------------------------------------------------
+# Export and CLI
+# ------------------------------------------------------------------------------
+
+def jeffa_export_keyword_results(results: list[KeywordResult], path: str | Path) -> None:
+    p = Path(path)
+    rows = [
+        "keyword,count,density_bps,position_first,position_last,tier,normalized",
+    ]
+    for r in results:
+        rows.append(
+            f"{r.keyword!r},{r.count},{r.density_bps},{r.position_first},{r.position_last},{r.tier.name},{r.normalized!r}"
+        )
+    p.write_text("\n".join(rows), encoding="utf-8")
+
+
+def jeffa_export_page_scores(scores: list[tuple[str, PageScore]], path: str | Path) -> None:
+    p = Path(path)
+    rows = ["url,total_bps,title_bps,desc_bps,h1_bps,kw_bps,len_bps,grade"]
+    for url, ps in scores:
+        rows.append(
+            f"{url},{ps.total_bps},{ps.title_score_bps},{ps.desc_score_bps},"
+            f"{ps.h1_score_bps},{ps.keyword_score_bps},{ps.length_score_bps},{ps.grade.name}"
+        )
+    p.write_text("\n".join(rows), encoding="utf-8")
