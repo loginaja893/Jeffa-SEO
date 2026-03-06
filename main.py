@@ -352,3 +352,62 @@ def jeffa_score_title(title: str, primary_keyword: str) -> int:
             return 8000
         return 6000
     return 3000
+
+
+def jeffa_score_description(description: str, primary_keyword: str) -> int:
+    if not description or not primary_keyword:
+        return 0
+    norm = jeffa_normalize_keyword(primary_keyword)
+    desc_lower = description.strip().lower()
+    if norm in desc_lower:
+        return 9000
+    return 4000
+
+
+def jeffa_score_h1(h1_list: list[str], primary_keyword: str) -> int:
+    if not primary_keyword or not h1_list:
+        return 5000
+    norm = jeffa_normalize_keyword(primary_keyword)
+    if len(h1_list) > JEFFA_H1_MAX_COUNT_RECOMMEND:
+        return 4000
+    for h in h1_list:
+        if norm in h.strip().lower():
+            return 9500
+    return 5000
+
+
+def jeffa_score_keyword_density(density_bps: int) -> int:
+    if density_bps < int(JEFFA_KEYWORD_DENSITY_FLOOR * 10000):
+        return 3000
+    if density_bps > int(JEFFA_KEYWORD_DENSITY_CEIL * 10000):
+        return 5000
+    return 9000
+
+
+def jeffa_score_length(word_count: int) -> int:
+    if word_count < JEFFA_READABILITY_MIN_WORDS:
+        return 4000
+    if word_count >= JEFFA_READABILITY_IDEAL_WORDS:
+        return 10000
+    return 4000 + (6000 * (word_count - JEFFA_READABILITY_MIN_WORDS)) // (
+        JEFFA_READABILITY_IDEAL_WORDS - JEFFA_READABILITY_MIN_WORDS
+    )
+
+
+def jeffa_grade_from_bps(bps: int) -> ContentGrade:
+    if bps >= 90 * 100:
+        return ContentGrade.A
+    if bps >= 75 * 100:
+        return ContentGrade.B
+    if bps >= 60 * 100:
+        return ContentGrade.C
+    if bps >= 40 * 100:
+        return ContentGrade.D
+    return ContentGrade.F
+
+
+def jeffa_page_score(
+    title: str,
+    description: str,
+    body_text: str,
+    h1_list: list[str],
