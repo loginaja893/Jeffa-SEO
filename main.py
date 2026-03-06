@@ -1119,3 +1119,58 @@ def jeffa_noindex_detected(html_text: str) -> bool:
     robots = jeffa_meta_robots_parse(jeffa_extract_meta_content(html_text, "robots"))
     return not robots.get("index", True)
 
+
+def jeffa_extract_meta_content(html_text: str, name: str) -> str:
+    meta_re = re.compile(
+        r'<meta[^>]+name=["\']' + re.escape(name) + r'["\'][^>]+content=["\']([^"\']*)["\']',
+        re.I,
+    )
+    m = meta_re.search(html_text)
+    if m:
+        return html.unescape(m.group(1)).strip()
+    return ""
+
+
+def jeffa_og_image_from_doc(html_text: str) -> str:
+    og_re = re.compile(r'<meta[^>]+property=["\']og:image["\'][^>]+content=["\']([^"\']+)["\']', re.I)
+    m = og_re.search(html_text)
+    if m:
+        return m.group(1).strip()
+    return ""
+
+
+def jeffa_full_page_audit(
+    html_text: str,
+    primary_keyword: str,
+    url: str = "",
+) -> dict[str, Any]:
+    title = jeffa_title_from_doc(html_text)
+    desc = jeffa_desc_from_doc(html_text)
+    body = jeffa_extract_body_text(html_text)
+    h1_list = jeffa_extract_h1(html_text)
+    ps = jeffa_page_score(title, desc, body, h1_list, primary_keyword)
+    kw_result = jeffa_analyze_keyword_in_text(body, primary_keyword) if primary_keyword else None
+    return {
+        "url": url,
+        "title": title,
+        "description": desc,
+        "word_count": jeffa_word_count(body),
+        "h1_count": len(h1_list),
+        "h1_list": h1_list,
+        "primary_keyword_result": {
+            "count": kw_result.count,
+            "density_bps": kw_result.density_bps,
+            "tier": kw_result.tier.name,
+        } if kw_result else None,
+        "page_score": {
+            "total_bps": ps.total_bps,
+            "grade": ps.grade.name,
+            "suggestions": ps.suggestions,
+        },
+        "canonical": jeffa_canonical_from_doc(html_text),
+        "readability_bps": jeffa_readability_score_bps(body),
+    }
+
+
+if __name__ == "__main__":
+    raise SystemExit(jeffa_main())
