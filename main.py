@@ -883,3 +883,62 @@ def jeffa_image_alt_check(html_text: str) -> list[tuple[str, bool]]:
         out.append((src, bool(alt.strip())))
     return out
 
+
+def jeffa_meta_robots_parse(robots_content: str) -> dict[str, bool]:
+    allowed = True
+    for part in robots_content.lower().split(","):
+        part = part.strip()
+        if "noindex" in part:
+            allowed = False
+            break
+        if "index" in part and "no" not in part:
+            allowed = True
+    return {"index": allowed}
+
+
+def jeffa_canonical_from_doc(html_text: str) -> str:
+    link_re = re.compile(r'<link[^>]+rel=["\']canonical["\'][^>]+href=["\']([^"\']+)["\']', re.I)
+    m = link_re.search(html_text)
+    if m:
+        return m.group(1).strip()
+    return ""
+
+
+def jeffa_title_from_doc(html_text: str) -> str:
+    title_re = re.compile(r"<title[^>]*>(.*?)</title>", re.I | re.DOTALL)
+    m = title_re.search(html_text)
+    if m:
+        return html.unescape(re.sub(r"<[^>]+>", "", m.group(1))).strip()
+    return ""
+
+
+def jeffa_desc_from_doc(html_text: str) -> str:
+    meta_re = re.compile(r'<meta[^>]+name=["\']description["\'][^>]+content=["\']([^"\']*)["\']', re.I)
+    m = meta_re.search(html_text)
+    if m:
+        return html.unescape(m.group(1)).strip()
+    return ""
+
+
+def jeffa_breadcrumb_schema(items: list[tuple[str, str]]) -> dict[str, Any]:
+    list_items = []
+    for i, (name, url) in enumerate(items):
+        list_items.append({
+            "@type": "ListItem",
+            "position": i + 1,
+            "name": name,
+            "item": url,
+        })
+    return {
+        "@context": JEFFA_SCHEMA_ORG_CONTEXT,
+        "@type": "BreadcrumbList",
+        "itemListElement": list_items,
+    }
+
+
+def jeffa_faq_schema(qa_pairs: list[tuple[str, str]]) -> dict[str, Any]:
+    return {
+        "@context": JEFFA_SCHEMA_ORG_CONTEXT,
+        "@type": "FAQPage",
+        "mainEntity": [
+            {"@type": "Question", "name": q, "acceptedAnswer": {"@type": "Answer", "text": a}}
