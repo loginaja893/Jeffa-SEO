@@ -529,3 +529,62 @@ def jeffa_schema_organization(name: str, url: str, logo: str = "") -> dict[str, 
     }
     if logo:
         d["logo"] = logo
+    return d
+
+
+def jeffa_schema_to_script_ld(schema: dict[str, Any]) -> str:
+    return f'<script type="application/ld+json">\n{json.dumps(schema, indent=2)}\n</script>'
+
+
+# ------------------------------------------------------------------------------
+# Crawl / fetch helpers (stdlib only)
+# ------------------------------------------------------------------------------
+
+def jeffa_fetch_url(url: str, timeout_sec: float = 10.0) -> tuple[int, str, dict[str, str]]:
+    req = urllib.request.Request(url, headers={"User-Agent": "JeffaSEO-Bot/1.0"})
+    try:
+        with urllib.request.urlopen(req, timeout=timeout_sec) as resp:
+            body = resp.read().decode("utf-8", errors="replace")
+            headers = {k.lower(): v for k, v in resp.headers.items()}
+            return resp.status, body, headers
+    except Exception as e:
+        return 0, "", {"x-jeffa-error": str(e)}
+
+
+def jeffa_extract_h1(html_text: str) -> list[str]:
+    h1_re = re.compile(r"<h1[^>]*>(.*?)</h1>", re.I | re.DOTALL)
+    out = []
+    for m in h1_re.finditer(html_text):
+        inner = re.sub(r"<[^>]+>", "", m.group(1))
+        inner = html.unescape(inner).strip()
+        if inner:
+            out.append(inner)
+    return out
+
+
+def jeffa_extract_body_text(html_text: str) -> str:
+    body_re = re.compile(r"<body[^>]*>(.*?)</body>", re.I | re.DOTALL)
+    m = body_re.search(html_text)
+    if not m:
+        return ""
+    inner = m.group(1)
+    inner = re.sub(r"<script[^>]*>.*?</script>", " ", inner, flags=re.I | re.DOTALL)
+    inner = re.sub(r"<style[^>]*>.*?</style>", " ", inner, flags=re.I | re.DOTALL)
+    inner = re.sub(r"<[^>]+>", " ", inner)
+    inner = html.unescape(inner)
+    return re.sub(r"\s+", " ", inner).strip()
+
+
+def jeffa_extract_links(html_text: str, base_url: str) -> list[str]:
+    href_re = re.compile(r'<a[^>]+href\s*=\s*["\']([^"\']+)["\']', re.I)
+    base = urllib.parse.urlparse(base_url)
+    out = []
+    seen = set()
+    for m in href_re.finditer(html_text):
+        raw = m.group(1).strip()
+        if not raw or raw.startswith("#") or raw.startswith("javascript:"):
+            continue
+        try:
+            parsed = urllib.parse.urlparse(raw)
+            if not parsed.netloc:
+                full = urllib.parse.urljoin(base_url, raw)
