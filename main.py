@@ -175,3 +175,62 @@ def jeffa_extract_keywords(text: str, min_len: int = 2, stop_words: frozenset[st
 
 
 def jeffa_keyword_density_bps(text: str, keyword: str) -> int:
+    tokens = jeffa_tokenize(text)
+    if not tokens:
+        return 0
+    kw_norm = jeffa_normalize_keyword(keyword)
+    kw_tokens = jeffa_tokenize(kw_norm)
+    if not kw_tokens:
+        return 0
+    count = 0
+    for i in range(len(tokens) - len(kw_tokens) + 1):
+        if tokens[i:i + len(kw_tokens)] == kw_tokens:
+            count += 1
+    return (count * 10000) // len(tokens) if tokens else 0
+
+
+def jeffa_analyze_keyword_in_text(text: str, keyword: str) -> KeywordResult:
+    norm_kw = jeffa_normalize_keyword(keyword)
+    tokens = jeffa_tokenize(text)
+    kw_tokens = jeffa_tokenize(norm_kw)
+    count = 0
+    first = -1
+    last = -1
+    for i in range(len(tokens) - len(kw_tokens) + 1):
+        if tokens[i:i + len(kw_tokens)] == kw_tokens:
+            count += 1
+            if first < 0:
+                first = i
+            last = i
+    density_bps = (count * 10000) // len(tokens) if tokens else 0
+    tier = _jeffa_infer_tier(keyword, count)
+    return KeywordResult(
+        keyword=keyword,
+        count=count,
+        density_bps=density_bps,
+        position_first=first,
+        position_last=last,
+        tier=tier,
+        normalized=norm_kw,
+    )
+
+
+def _jeffa_infer_tier(keyword: str, count: int) -> SerpTier:
+    word_count = len(keyword.split())
+    if word_count >= 4:
+        return SerpTier.LONG_TAIL
+    if re.search(r"\b(near me|city|zip|address)\b", keyword, re.I):
+        return SerpTier.LOCAL
+    if re.search(r"\b(image|photo|picture|png|jpg)\b", keyword, re.I):
+        return SerpTier.IMAGE
+    if word_count <= 2 and count >= 3:
+        return SerpTier.BRAND
+    return SerpTier.CORE
+
+
+def jeffa_top_ngrams(text: str, n: int = 2, top_k: int = 20) -> list[tuple[str, int]]:
+    tokens = jeffa_extract_keywords(text)
+    if len(tokens) < n:
+        return []
+    ngrams = [" ".join(tokens[i:i + n]) for i in range(len(tokens) - n + 1)]
+    return Counter(ngrams).most_common(top_k)
