@@ -1001,3 +1001,62 @@ def jeffa_keyword_variations(keyword: str) -> list[str]:
 
 
 def jeffa_serp_tier_from_keyword(keyword: str) -> SerpTier:
+    r = _jeffa_infer_tier(keyword, 1)
+    return r
+
+
+def jeffa_validate_url(url: str) -> bool:
+    try:
+        parsed = urllib.parse.urlparse(url)
+        return bool(parsed.scheme and parsed.netloc)
+    except Exception:
+        return False
+
+
+def jeffa_normalize_url(url: str) -> str:
+    try:
+        return urllib.parse.urljoin(url, ".")
+    except Exception:
+        return url
+
+
+def jeffa_domain_from_url(url: str) -> str:
+    try:
+        return urllib.parse.urlparse(url).netloc or ""
+    except Exception:
+        return ""
+
+
+def jeffa_path_from_url(url: str) -> str:
+    try:
+        return urllib.parse.urlparse(url).path or "/"
+    except Exception:
+        return "/"
+
+
+def jeffa_merge_keyword_results(a: KeywordResult, b: KeywordResult) -> KeywordResult:
+    total_count = a.count + b.count
+    total_pos_first = min(a.position_first, b.position_first) if a.position_first >= 0 and b.position_first >= 0 else (a.position_first if a.position_first >= 0 else b.position_first)
+    total_pos_last = max(a.position_last, b.position_last)
+    return KeywordResult(
+        keyword=a.keyword,
+        count=total_count,
+        density_bps=a.density_bps,
+        position_first=total_pos_first,
+        position_last=total_pos_last,
+        tier=a.tier,
+        normalized=a.normalized,
+    )
+
+
+def jeffa_content_gap_keywords(
+    target_keywords: list[str],
+    existing_text: str,
+) -> list[str]:
+    existing_set = set(jeffa_extract_keywords(existing_text))
+    gap = []
+    for kw in target_keywords:
+        norm = jeffa_normalize_keyword(kw)
+        kw_tokens = set(jeffa_tokenize(norm))
+        if not kw_tokens.issubset(existing_set):
+            gap.append(kw)
