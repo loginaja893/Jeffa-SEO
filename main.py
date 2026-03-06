@@ -470,3 +470,62 @@ def jeffa_sitemap_add_url(root: ET.Element, url: SitemapUrl, ns: dict[str, str])
     if url.changefreq:
         ET.SubElement(url_el, "changefreq").text = url.changefreq
     if url.priority is not None:
+        ET.SubElement(url_el, "priority").text = f"{url.priority:.1f}"
+
+
+def jeffa_sitemap_build(urls: list[SitemapUrl]) -> str:
+    root = ET.Element("urlset", xmlns="http://www.sitemaps.org/schemas/sitemap/0.9")
+    for u in urls[:JEFFA_SITEMAP_MAX_URLS]:
+        jeffa_sitemap_add_url(root, u, jeffa_sitemap_ns())
+    ET.indent(root, space="  ")
+    return ET.tostring(root, encoding="unicode", default_namespace="")
+
+
+def jeffa_sitemap_index_build(sitemap_locs: list[str]) -> str:
+    root = ET.Element("sitemapindex", xmlns="http://www.sitemaps.org/schemas/sitemap/0.9")
+    for loc in sitemap_locs[:JEFFA_SITEMAP_INDEX_MAX]:
+        sitemap_el = ET.SubElement(root, "sitemap")
+        ET.SubElement(sitemap_el, "loc").text = loc
+        ET.SubElement(sitemap_el, "lastmod").text = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S+00:00")
+    ET.indent(root, space="  ")
+    return ET.tostring(root, encoding="unicode", default_namespace="")
+
+
+def jeffa_lastmod_iso() -> str:
+    return datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+
+# ------------------------------------------------------------------------------
+# JSON-LD / Schema.org helpers
+# ------------------------------------------------------------------------------
+
+def jeffa_schema_webpage(
+    name: str,
+    description: str,
+    url: str,
+    date_published: str | None = None,
+    date_modified: str | None = None,
+) -> dict[str, Any]:
+    d: dict[str, Any] = {
+        "@context": JEFFA_SCHEMA_ORG_CONTEXT,
+        "@type": "WebPage",
+        "name": name,
+        "description": description,
+        "url": url,
+    }
+    if date_published:
+        d["datePublished"] = date_published
+    if date_modified:
+        d["dateModified"] = date_modified
+    return d
+
+
+def jeffa_schema_organization(name: str, url: str, logo: str = "") -> dict[str, Any]:
+    d: dict[str, Any] = {
+        "@context": JEFFA_SCHEMA_ORG_CONTEXT,
+        "@type": "Organization",
+        "name": name,
+        "url": url,
+    }
+    if logo:
+        d["logo"] = logo
