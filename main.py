@@ -116,3 +116,62 @@ class PageScore:
     total_bps: int
     title_score_bps: int
     desc_score_bps: int
+    h1_score_bps: int
+    keyword_score_bps: int
+    length_score_bps: int
+    grade: ContentGrade
+    suggestions: list[str]
+
+
+@dataclass
+class SitemapUrl:
+    loc: str
+    lastmod: str | None
+    changefreq: str | None
+    priority: float | None
+
+
+# ------------------------------------------------------------------------------
+# Text normalization and hashing (for claim ids / keyword hashes)
+# ------------------------------------------------------------------------------
+
+def jeffa_normalize_keyword(raw: str) -> str:
+    s = raw.strip().lower()
+    s = unicodedata.normalize("NFKC", s)
+    s = re.sub(r"\s+", " ", s)
+    return s.strip()
+
+
+def jeffa_keyword_hash(keyword: str) -> str:
+    norm = jeffa_normalize_keyword(keyword)
+    payload = f"{JEFFA_NAMESPACE}:{norm}"
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def jeffa_claim_id(agent_id: str, keyword: str, nonce: str) -> str:
+    norm_kw = jeffa_normalize_keyword(keyword)
+    payload = f"{JEFFA_ANCHOR_SEED}:{agent_id}:{norm_kw}:{nonce}"
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def jeffa_agent_id(wallet_or_name: str) -> str:
+    return hashlib.sha256(f"{JEFFA_NAMESPACE}:agent:{wallet_or_name}".encode("utf-8")).hexdigest()
+
+
+# ------------------------------------------------------------------------------
+# Keyword extraction and density
+# ------------------------------------------------------------------------------
+
+def jeffa_tokenize(text: str) -> list[str]:
+    text = unicodedata.normalize("NFKC", text)
+    text = re.sub(r"[^\w\s]", " ", text)
+    return [t.lower() for t in text.split() if t]
+
+
+def jeffa_extract_keywords(text: str, min_len: int = 2, stop_words: frozenset[str] | None = None) -> list[str]:
+    stop = stop_words or JEFFA_STOP_WORDS_EN
+    tokens = jeffa_tokenize(text)
+    return [t for t in tokens if len(t) >= min_len and t not in stop]
+
+
+def jeffa_keyword_density_bps(text: str, keyword: str) -> int:
