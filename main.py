@@ -234,3 +234,62 @@ def jeffa_top_ngrams(text: str, n: int = 2, top_k: int = 20) -> list[tuple[str, 
         return []
     ngrams = [" ".join(tokens[i:i + n]) for i in range(len(tokens) - n + 1)]
     return Counter(ngrams).most_common(top_k)
+
+
+# ------------------------------------------------------------------------------
+# Meta tag generation
+# ------------------------------------------------------------------------------
+
+def jeffa_truncate_for_meta(s: str, max_len: int, suffix: str = "") -> str:
+    s = s.strip()
+    if len(s) <= max_len:
+        return s
+    return s[: max_len - len(suffix)].rsplit(" ", 1)[0] + suffix
+
+
+def jeffa_build_meta(
+    title: str,
+    description: str,
+    canonical: str = "",
+    og_type: str = "website",
+    twitter_card: str = "summary_large_image",
+    robots: str = "index, follow",
+    locale: str = JEFFA_DEFAULT_LOCALE,
+    extra: list[tuple[str, str]] | None = None,
+) -> MetaTags:
+    title_trim = jeffa_truncate_for_meta(title, JEFFA_MAX_TITLE_LEN)
+    desc_trim = description.strip()
+    if len(desc_trim) > JEFFA_MAX_DESC_LEN:
+        desc_trim = jeffa_truncate_for_meta(desc_trim, JEFFA_MAX_DESC_LEN, "...")
+    if len(desc_trim) < JEFFA_MIN_DESC_LEN and len(description) >= JEFFA_MIN_DESC_LEN:
+        desc_trim = jeffa_truncate_for_meta(description, JEFFA_MAX_DESC_LEN, "...")
+    return MetaTags(
+        title=title_trim,
+        description=desc_trim,
+        canonical=canonical,
+        og_title=title_trim,
+        og_description=desc_trim,
+        og_type=og_type,
+        twitter_card=twitter_card,
+        twitter_title=title_trim,
+        twitter_description=desc_trim,
+        robots=robots,
+        viewport=JEFFA_META_VIEWPORT,
+        charset=JEFFA_DEFAULT_CHARSET,
+        locale=locale,
+        extra=extra or [],
+    )
+
+
+def jeffa_meta_to_html(meta: MetaTags, indent: str = "  ") -> str:
+    lines = [
+        f'<meta charset="{html.escape(meta.charset)}">',
+        f'<meta name="viewport" content="{html.escape(meta.viewport)}">',
+        f'<title>{html.escape(meta.title)}</title>',
+        f'<meta name="description" content="{html.escape(meta.description)}">',
+        f'<meta name="robots" content="{html.escape(meta.robots)}">',
+    ]
+    if meta.canonical:
+        lines.append(f'<link rel="canonical" href="{html.escape(meta.canonical)}">')
+    lines.extend([
+        f'<meta property="og:title" content="{html.escape(meta.og_title)}">',
